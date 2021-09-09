@@ -6,20 +6,125 @@ output:
 ---
 
 
-## Loading and preprocessing the data
+## 1. Loading and preprocessing the data
+
+- Activity data is downloaded as a zip file from the following source:
+
+"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+
+``` {r echo = TRUE}
+setwd("/Users/kumarnv/Rprojects/reproducibledata/project1")
+activityUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+
+setwd("/Users/kumarnv/Rprojects/reproducibledata/project1")
+zipFile <- "activity.zip"
+activityFile <- "./activity.csv"
+
+if (!file.exists("./data")) {
+  dir.create("./data")
+}
+
+if (!file.exists(zipFile)) {
+  download.file(activityUrl, destfile = zipFile, method = "curl")
+}
+activityData <- read.csv(activityFile)
+```
+
+## 2. Histogram of  total number of steps taken each day
+```{r echo = TRUE}
+
+stepsDaily <- aggregate(. ~ date, data = activityData, sum)$steps
+hist(stepsDaily, breaks = 10)
+
+```
 
 
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
+## 3. What is mean total number of steps taken per day?
+```{r echo = TRUE}
+print(paste("daily steps mean", round(mean(stepsDaily))))
+print(paste("daily steps median", round(median(stepsDaily))))
+```
 
 
-## Imputing missing values
+## 4. What is the average daily activity pattern?
+
+```{r echo= TRUE}
+
+plot(stepsDaily, type ="l", xlab = "Day#", main = "Daily activity pattern")
+
+```
+```{r}
+stepsByInterval <- aggregate(steps ~ interval, activityData, mean)
+plot(stepsByInterval, type="l", main= "Daily steps pattern by interval", ylab = "steps  mean")
+```
+## 5-miniute interval with max number of steps- without imputation
+```{r}
+
+activityMax <- max(stepsByInterval$steps)
+# interval corresponding to the max number of steps
+intervalMax <- stepsByInterval[stepsByInterval$steps == activityMax, 1]
+print(paste("Interval corresponding to maximum activity", intervalMax))
+```
+
+## 6. Imputing missing values
+
+- Used Misc package to impute missing values with mean number of steps
+
+```{r, echo=TRUE}
+
+#install.packages("Hmisc")
+library(Hmisc)
 
 
+totalNa <- sum(!complete.cases(activityData))
+totalNa
+activityDataImp <- activityData
+activityDataImp$steps <- with(activityData, impute(steps, mean))
+activityDataImp$steps <- round(activityDataImp$steps)
+stepsDailyImp <- aggregate(. ~ date, data = activityDataImp, sum)$steps
+print(paste("daily mean", round(mean(stepsDailyImp))))
+#mean(stepsDailyImp)
+#median((stepsDailyImp))
+#plot(stepsDailyImp, type = "l", xlab = "day#", main = "Daily activity after data imputation")
+```
+## 7. Histogram of the total number of steps taken daily after data imputation. 
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r echo=TRUE}
+hist(stepsDailyImp, breaks = 10, main = "daily steps after data imputation", xlab = "Number of steps taken daily")
+```
+
+## 8. Are there differences in activity patterns between weekdays and weekends?
+
+```{r echo = TRUE, fig.height= 6}
+par(mfrow = c(2,1))
+hist(stepsDaily, breaks = 10, main = "daily steps before data imputation", xlab = "Number of steps taken daily")
+hist(stepsDailyImp, breaks = 10, main = "daily steps after data imputation", xlab = "Number of steps taken daily")
+```
+- Differences between weekday and weekends aren't obvious from histograms
+
+## 8. Panel plot comparing average number of steps taken per 5-minute interval.
+
+```{r fig.height=4}
+
+par(mfrow = c(2,1))
+library(dplyr)
+library(lattice)
+# Impute steps in activitydata
+activityDataImp <- activityData
+activityDataImp$steps <- with(activityData, impute(steps, mean))
+activityDataImp$steps <- round(activityDataImp$steps)
+imputedData <- mutate(activityDataImp, weekdays(as.Date(activityDataImp$date)))
+colnames(imputedData)[4] <- "day"
+
+imputedData$Daytype <- factor(imputedData$day, levels = c("Monday", "Tuesday","Wednesday", "Thursday", "Friday","Saturday","Sunday"), labels = c("weekday", "weekday", "weekday", "weekday", "weekday", "weekend","weekend"))
+aggregateImputedData <- aggregate(steps~interval+Daytype, imputedData, mean)
+xyplot(steps~interval|Daytype,
+       data=aggregateImputedData,
+       main="Interval Averages, Weekday v. Weekend",
+       xlab="Interval",
+       layout=c(1,2),
+       type="l")
+
+
+```
+- daily activity pattern on weekdays appears to be different  from that on weekends.
